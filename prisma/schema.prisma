@@ -1,0 +1,547 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  STAFF
+  MANAGER
+  ADMIN
+}
+
+enum NutritionalGoal {
+  PERTE_DE_POIDS
+  PRISE_DE_MASSE
+  MAINTIEN
+  ENERGIE
+}
+
+enum TastePreference {
+  SALE
+  ACIDULE
+  EPICE
+  DOUX
+}
+
+enum PortionSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum SauceFatLevel {
+  LIGHT
+  MEDIUM
+  FULL
+}
+
+enum SubscriptionPlan {
+  STARTER
+  ACTIVE
+  PREMIUM
+  ETUDIANT
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  PENDING
+}
+
+enum FulfillmentType {
+  DINE_IN
+  TAKEAWAY
+  CLICK_COLLECT
+  DELIVERY
+}
+
+enum OrderStatus {
+  RECUE
+  EN_PREPARATION
+  PRETE
+  RECUPEREE
+  ANNULEE
+}
+
+enum IngredientCategory {
+  BASE
+  PROTEIN
+  TOPPING
+  SAUCE
+  ADDON
+  JUICE_BASE
+  SNACK
+}
+
+enum MenuCategorySlug {
+  SALADES
+  BOWLS
+  JUS_SMOOTHIES
+  SNACKS
+}
+
+enum AllergenType {
+  GLUTEN
+  LACTOSE
+  OEUFS
+  ARACHIDES
+  FRUITS_A_COQUE
+  SOJA
+  POISSON
+  CRUSTACES
+  CELERI
+  MOUTARDE
+  SESAME
+  SULFITES
+  LUPIN
+  MOLLUSQUES
+}
+
+enum InventoryLogType {
+  RESTOCK
+  USAGE
+  WASTE
+  DONATION
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  REWARDED
+}
+
+enum PromoType {
+  PERCENT
+  FIXED_MAD
+  FREE_MEAL
+  FREE_ITEM
+}
+
+enum PartnerType {
+  GYM
+  UNIVERSITY
+  NUTRITIONIST
+  PRODUCER
+}
+
+// ─── User & Profile ───────────────────────────────────────────────────────────
+
+model User {
+  id                  String    @id @default(cuid())
+  name                String
+  email               String    @unique
+  passwordHash        String?
+  role                Role      @default(CUSTOMER)
+  isStudent           Boolean   @default(false)
+  studentVerifiedAt   DateTime?
+  locale              String    @default("fr")
+  emailVerified       DateTime?
+  verifyToken         String?
+  resetToken          String?
+  resetTokenExpiresAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  dietaryProfile         DietaryProfile?
+  savedBowls             SavedBowl[]
+  subscriptions          Subscription[]
+  orders                 Order[]
+  loyaltyAccount         LoyaltyAccount?
+  referralsMade          Referral[]            @relation("Referrer")
+  referralReceived       Referral?             @relation("Referee")
+  staffProfile           StaffMember?
+  newsletterSubscription NewsletterSubscriber?
+
+  @@map("users")
+}
+
+model DietaryProfile {
+  id               String            @id @default(cuid())
+  userId           String            @unique
+  goal             NutritionalGoal   @default(MAINTIEN)
+  tastePrefs       TastePreference[]
+  defaultPortion   PortionSize       @default(MEDIUM)
+  defaultSauceType String?
+  sauceFatLevel    SauceFatLevel     @default(MEDIUM)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exclusionRules ExclusionRule[]
+
+  @@map("dietary_profiles")
+}
+
+model ExclusionRule {
+  id           String        @id @default(cuid())
+  profileId    String
+  ingredientId String?
+  allergen     AllergenType?
+  type         String
+
+  profile    DietaryProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  ingredient Ingredient?    @relation(fields: [ingredientId], references: [id])
+
+  @@map("exclusion_rules")
+}
+
+// ─── Ingredients & Menu ───────────────────────────────────────────────────────
+
+model Ingredient {
+  id           String             @id @default(cuid())
+  name         String
+  nameEn       String?
+  nameAr       String?
+  category     IngredientCategory
+  allergens    AllergenType[]
+  kcal         Float              @default(0)
+  protein      Float              @default(0)
+  carbs        Float              @default(0)
+  fat          Float              @default(0)
+  fiber        Float              @default(0)
+  pricePerUnit Float              @default(0)
+  stock        Float              @default(0)
+  minStock     Float              @default(500)
+  isVegan      Boolean            @default(false)
+  isGlutenFree Boolean            @default(false)
+  isSeasonal   Boolean            @default(false)
+  isAvailable  Boolean            @default(true)
+  imageUrl     String?
+  supplierId   String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  exclusionRules ExclusionRule[]
+  bowlComponents BowlComponent[]
+  inventoryLogs  InventoryLog[]
+
+  @@map("ingredients")
+}
+
+model MenuCategory {
+  id        String           @id @default(cuid())
+  slug      MenuCategorySlug @unique
+  name      String
+  nameEn    String?
+  imageUrl  String?
+  sortOrder Int              @default(0)
+
+  items MenuItem[]
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id            String           @id @default(cuid())
+  categoryId    String
+  name          String
+  nameEn        String?
+  description   String?
+  imageUrl      String?
+  basePrice     Float
+  baseMacros    Json
+  allergens     AllergenType[]
+  isAvailable   Boolean          @default(true)
+  customizable  Boolean          @default(false)
+  isVegan       Boolean          @default(false)
+  isGlutenFree  Boolean          @default(false)
+  isHighProtein Boolean          @default(false)
+  sortOrder     Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  category   MenuCategory @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+
+  @@map("menu_items")
+}
+
+// ─── Bowl Builder ─────────────────────────────────────────────────────────────
+
+model SavedBowl {
+  id           String          @id @default(cuid())
+  userId       String
+  name         String
+  totalKcal    Float
+  totalPrice   Float
+  isVegan      Boolean         @default(false)
+  isGlutenFree Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  components BowlComponent[]
+  orderItems OrderItem[]
+
+  @@map("saved_bowls")
+}
+
+model BowlComponent {
+  id           String      @id @default(cuid())
+  savedBowlId  String
+  ingredientId String
+  quantity     Float
+  step         String
+  portionSize  PortionSize @default(MEDIUM)
+
+  savedBowl  SavedBowl  @relation(fields: [savedBowlId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@map("bowl_components")
+}
+
+// ─── Subscriptions ────────────────────────────────────────────────────────────
+
+model SubscriptionPlanConfig {
+  id                      String           @id @default(cuid())
+  plan                    SubscriptionPlan @unique
+  name                    String
+  nameEn                  String?
+  description             String?
+  priceMonthly            Float
+  mealCredits             Int
+  includesJuice           Boolean          @default(false)
+  includesSmoothie        Boolean          @default(false)
+  includesNutritionAdvice Boolean          @default(false)
+  requiresStudent         Boolean          @default(false)
+  emoji                   String?
+  features                Json
+  isActive                Boolean          @default(true)
+
+  subscriptions Subscription[]
+
+  @@map("subscription_plan_configs")
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  planId               String
+  status               SubscriptionStatus @default(PENDING)
+  mealCreditsRemaining Int                @default(0)
+  renewsAt             DateTime
+  pausedUntil          DateTime?
+  cancelledAt          DateTime?
+  priceMonthly         Float
+  billingHistory       Json               @default("[]")
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlanConfig @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
+
+model Order {
+  id                  String          @id @default(cuid())
+  userId              String?
+  locationId          String
+  fulfillmentType     FulfillmentType @default(TAKEAWAY)
+  timeSlot            DateTime?
+  status              OrderStatus     @default(RECUE)
+  subtotal            Float
+  loyaltyDiscount     Float           @default(0)
+  promoDiscount       Float           @default(0)
+  creditsUsed         Float           @default(0)
+  total               Float
+  promoCode           String?
+  specialInstructions String?
+  estimatedReadyAt    DateTime?
+  actualReadyAt       DateTime?
+  prepStartedAt       DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  user     User?     @relation(fields: [userId], references: [id])
+  location Location  @relation(fields: [locationId], references: [id])
+  items    OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String  @id @default(cuid())
+  orderId        String
+  menuItemId     String?
+  savedBowlId    String?
+  customization  Json?
+  computedMacros Json?
+  quantity       Int     @default(1)
+  unitPrice      Float
+  totalPrice     Float
+  notes          String?
+
+  order     Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem?  @relation(fields: [menuItemId], references: [id])
+  savedBowl SavedBowl? @relation(fields: [savedBowlId], references: [id])
+
+  @@map("order_items")
+}
+
+// ─── Loyalty & Referral ───────────────────────────────────────────────────────
+
+model LoyaltyAccount {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  points    Int      @default(0)
+  lifetime  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions LoyaltyTransaction[]
+
+  @@map("loyalty_accounts")
+}
+
+model LoyaltyTransaction {
+  id          String   @id @default(cuid())
+  accountId   String
+  points      Int
+  description String
+  orderId     String?
+  createdAt   DateTime @default(now())
+
+  account LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_transactions")
+}
+
+model Referral {
+  id            String         @id @default(cuid())
+  referrerId    String
+  refereeEmail  String
+  refereeId     String?        @unique
+  status        ReferralStatus @default(PENDING)
+  rewardGranted Boolean        @default(false)
+  code          String         @unique
+  createdAt     DateTime       @default(now())
+
+  referrer User  @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referee  User? @relation("Referee", fields: [refereeId], references: [id])
+
+  @@map("referrals")
+}
+
+// ─── Location ─────────────────────────────────────────────────────────────────
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  city      String   @default("Marrakech")
+  country   String   @default("MA")
+  lat       Float?
+  lng       Float?
+  hours     Json
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  orders Order[]
+
+  @@map("locations")
+}
+
+// ─── Suppliers & Inventory ────────────────────────────────────────────────────
+
+model Supplier {
+  id             String   @id @default(cuid())
+  name           String
+  isLocal        Boolean  @default(false)
+  contact        String?
+  address        String?
+  certifications String[] @default([])
+  createdAt      DateTime @default(now())
+
+  ingredients Ingredient[]
+
+  @@map("suppliers")
+}
+
+model InventoryLog {
+  id           String           @id @default(cuid())
+  ingredientId String
+  type         InventoryLogType
+  quantity     Float
+  note         String?
+  createdBy    String?
+  date         DateTime         @default(now())
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@map("inventory_logs")
+}
+
+// ─── Marketing ────────────────────────────────────────────────────────────────
+
+model Promo {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  type      PromoType
+  value     Float
+  conditions Json?
+  validFrom DateTime
+  validTo   DateTime
+  usedCount Int       @default(0)
+  maxUses   Int?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  @@map("promos")
+}
+
+model NewsletterSubscriber {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  userId       String?  @unique
+  locale       String   @default("fr")
+  subscribedAt DateTime @default(now())
+  isActive     Boolean  @default(true)
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("newsletter_subscribers")
+}
+
+// ─── Partners & Staff ─────────────────────────────────────────────────────────
+
+model Partner {
+  id           String      @id @default(cuid())
+  type         PartnerType
+  name         String
+  logo         String?
+  website      String?
+  crossLoyalty Boolean     @default(false)
+  description  String?
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+
+  @@map("partners")
+}
+
+model StaffMember {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  locationId     String?
+  haccpTrained   Boolean   @default(false)
+  haccpTrainedAt DateTime?
+  scheduleNotes  String?
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("staff_members")
+}

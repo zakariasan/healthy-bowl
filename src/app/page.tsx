@@ -202,7 +202,7 @@ export default function HomePage() {
             <div>
               <div className="inline-flex items-center gap-2 glass-green rounded-pill px-4 py-1.5 text-sm text-brand-glow font-semibold mb-8 animate-fade-up">
                 <Leaf className="h-4 w-4" />
-                Casablanca · Marrakech bientôt
+                Casablanca · bientôt
               </div>
 
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white leading-[1.0] mb-6 animate-fade-up delay-100">

@@ -47,7 +47,7 @@ export function Footer() {
               <input
                 type="email"
                 name="email"
-                placeholder="votre@email.com"
+                placeholder="bonjour@healthy-bowl.com"
                 required
                 className="flex-1 md:w-64 px-4 py-2.5 rounded-btn text-sm text-charcoal focus:outline-none"
               />
@@ -76,11 +76,11 @@ export function Footer() {
             <div className="space-y-2 text-sm text-gray-400">
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-brand-leaf shrink-0" />
-                <span>Campus Universitaire, Marrakech</span>
+                <span>Rue Amerchich, Marrakech 40000, Marrakech</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-brand-leaf shrink-0" />
-                <span>+212 5XX-XXXXXX</span>
+                <span>+212 524-446235</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-brand-leaf shrink-0" />
